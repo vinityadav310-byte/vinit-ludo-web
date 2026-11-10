@@ -1,0 +1,154 @@
+<!doctype html>
+<html lang="hi">
+<head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Vinit Ludo — Premium Multiplayer</title>
+<script src="https://unpkg.com/peerjs@1.5.4/dist/peerjs.min.js"></script>
+<style>
+:root{--bg:#0b1020;--panel:#141d34;--gold:#f6c85f;--muted:#aab5d0;--red:#ff5268;--blue:#4da3ff;--green:#37d69a;--yellow:#ffd34e}
+*{box-sizing:border-box}body{margin:0;background:radial-gradient(circle at 50% 0,#24345d,#0b1020 60%);color:#fff;font-family:system-ui,-apple-system,Segoe UI,sans-serif;min-height:100vh}
+header{padding:20px 16px 10px;text-align:center}h1{margin:0;font-size:clamp(28px,5vw,44px);letter-spacing:1px;color:var(--gold);text-shadow:0 3px 18px #f6c85f55}.sub{color:var(--muted);margin-top:4px}
+.wrap{max-width:1050px;margin:auto;padding:12px;display:grid;grid-template-columns:minmax(280px,1fr) 300px;gap:16px}
+.panel{background:#141d34eF;border:1px solid #ffffff18;border-radius:20px;padding:16px;box-shadow:0 15px 45px #0005}
+#board{width:100%;max-width:650px;display:block;margin:auto;touch-action:manipulation}
+.controls{display:flex;flex-direction:column;gap:12px}.row{display:flex;gap:8px;flex-wrap:wrap}button,input{font:inherit;border-radius:12px;border:1px solid #ffffff25;padding:11px 13px}button{background:linear-gradient(135deg,#f7d77c,#d99a32);color:#251a05;font-weight:800;cursor:pointer}button.secondary{background:#263452;color:#fff}button:disabled{opacity:.4;cursor:not-allowed}input{background:#0d1528;color:white;min-width:0;flex:1}
+.stat{background:#0d1528;border:1px solid #ffffff12;border-radius:14px;padding:12px}.muted{color:var(--muted);font-size:13px}.players{display:grid;grid-template-columns:1fr 1fr;gap:8px}.player{padding:10px;border-radius:12px;background:#0d1528;border:1px solid #ffffff12}.dot{display:inline-block;width:10px;height:10px;border-radius:50%;margin-right:6px}
+#dice{font-size:40px;text-align:center;padding:6px}#message{min-height:42px;line-height:1.4;color:#f8e6b4}
+.small{font-size:12px;color:var(--muted);line-height:1.5}.active{outline:2px solid var(--gold)}footer{text-align:center;color:#7886a7;padding:10px 15px 25px;font-size:12px}
+@media(max-width:800px){.wrap{grid-template-columns:1fr}.controls{order:-1}.panel.boardpanel{padding:8px}}
+</style>
+<link rel="manifest" href="./manifest.webmanifest">
+<meta name="theme-color" content="#0b1020">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+</head>
+<body>
+<header><h1>✦ VINIT LUDO ✦</h1><div class="sub">Premium Multiplayer • Roll • Race • Win</div></header>
+<div class="wrap">
+<section class="panel boardpanel"><svg id="board" viewBox="0 0 600 600" aria-label="Ludo board"></svg></section>
+<aside class="panel controls">
+ <div class="stat"><div class="muted">GAME STATUS</div><strong id="status">Offline • Create or join a room</strong><div id="roomline" class="muted">Room: —</div></div>
+ <div class="row"><button id="create">Create online room</button><button id="local" class="secondary">Local 2-player</button></div>
+ <div class="row"><input id="roomInput" placeholder="Enter room code"><button id="join" class="secondary">Join</button></div>
+ <div class="small">ऑनलाइन खेलने के लिए दोनों खिलाड़ियों को यह HTML वेबसाइट इंटरनेट पर खोलनी होगी। एक खिलाड़ी रूम बनाए और दूसरा रूम कोड डालकर Join करे।</div>
+ <div class="stat"><div class="muted">YOUR TURN</div><div id="turn">—</div><div id="dice">🎲</div><button id="roll" style="width:100%" disabled>ROLL DICE</button></div>
+ <div id="message">पहले ऑनलाइन रूम बनाएं या Local 2-player चुनें।</div>
+ <div class="players" id="players"></div>
+ <div class="stat"><strong>कैसे खेलें</strong><div class="small">• 6 आने पर गोटी घर से बाहर आती है।<br>• अपनी गोटी पर टैप करके चाल चलें।<br>• विरोधी की गोटी काटने पर वह वापस घर जाएगी।<br>• जीतने के लिए चारों गोटियों को फिनिश तक पहुँचाएँ।<br>• सुरक्षित खाने पर गोटी नहीं कटती।</div></div>
+ <button id="reset" class="secondary">Restart game</button>
+</aside>
+</div>
+<footer>Vinit Ludo • First playable prototype • Online mode needs an internet connection</footer>
+<script>
+const colors=['#ff5268','#37d69a','#ffd34e','#4da3ff'];
+const names=['Red','Green','Yellow','Blue'];
+const starts=[0,13,26,39];
+const safe=[0,8,13,21,26,34,39,47];
+const route=[];
+for(let x=1;x<=13;x++)route.push([x,0]);
+for(let y=1;y<=13;y++)route.push([14,y]);
+for(let x=13;x>=1;x--)route.push([x,14]);
+for(let y=13;y>=1;y--)route.push([0,y]);
+const homePaths=[
+ [[7,1],[7,2],[7,3],[7,4],[7,5],[7,6]],
+ [[13,7],[12,7],[11,7],[10,7],[9,7],[8,7]],
+ [[7,13],[7,12],[7,11],[7,10],[7,9],[7,8]],
+ [[1,7],[2,7],[3,7],[4,7],[5,7],[6,7]]
+];
+const baseSpots=[
+ [[2,2],[4,2],[2,4],[4,4]],[[10,2],[12,2],[10,4],[12,4]],
+ [[10,10],[12,10],[10,12],[12,12]],[[2,10],[4,10],[2,12],[4,12]]
+];
+let state=null, peer=null, conn=null, host=false, mode='none', mySeat=0, selected=null;
+const $=id=>document.getElementById(id);
+const fresh=()=>({players:2,turn:0,dice:0,rolled:false,winner:null,tokens:Array.from({length:2},()=>[-1,-1,-1,-1]),message:'Red की बारी है।'});
+function initBoard(){
+ let s='<rect x="0" y="0" width="600" height="600" rx="24" fill="#101a30"/>';
+ // quadrants
+ const quads=[['#4a1e32',0,0],['#153d37',360,0],['#4a3b16',360,360],['#173452',0,360]];
+ quads.forEach(([c,x,y])=>s+=`<rect x="${x+10}" y="${y+10}" width="230" height="230" rx="28" fill="${c}" stroke="#ffffff30" stroke-width="3"/>`);
+ // track tiles
+ route.forEach(([x,y],i)=>{let px=40+x*37.15,py=40+y*37.15;let fill=safe.includes(i)?'#e8d69b':'#dce4f2';s+=`<rect x="${px-16}" y="${py-16}" width="32" height="32" rx="7" fill="${fill}" stroke="#6b7894" stroke-width="1.5"/>`;if(safe.includes(i))s+=`<text x="${px}" y="${py+6}" text-anchor="middle" font-size="18" fill="#8a6c2c">★</text>`;});
+ // home lanes
+ homePaths.forEach((p,i)=>p.forEach(([x,y],j)=>{let px=40+x*37.15,py=40+y*37.15;s+=`<rect x="${px-16}" y="${py-16}" width="32" height="32" rx="7" fill="${colors[i]}" opacity="${.35+j*.1}" stroke="#fff" stroke-width="1"/>`;}));
+ // bases
+ baseSpots.forEach((spots,i)=>{spots.forEach(([x,y])=>{let px=40+x*37.15,py=40+y*37.15;s+=`<circle cx="${px}" cy="${py}" r="12" fill="#f7f8fc" stroke="${colors[i]}" stroke-width="5"/>`;});});
+ s+='<circle cx="300" cy="300" r="45" fill="#f6c85f" stroke="#fff1c2" stroke-width="5"/><text x="300" y="294" text-anchor="middle" font-size="15" font-weight="900" fill="#392707">VINIT</text><text x="300" y="314" text-anchor="middle" font-size="12" fill="#392707">LUDO</text>';
+ $('board').innerHTML=s;
+}
+function tokenPos(p,t){
+ const step=state.tokens[p][t];
+ if(step<0){const [x,y]=baseSpots[p][t];return [40+x*37.15,40+y*37.15];}
+ if(step>=52){const [x,y]=homePaths[p][Math.min(5,step-52)];return [40+x*37.15,40+y*37.15];}
+ const idx=(starts[p]+step)%52,[x,y]=route[idx];return [40+x*37.15,40+y*37.15];
+}
+function draw(){
+ initBoard();
+ let svg=$('board').innerHTML;
+ state.tokens.forEach((arr,p)=>arr.forEach((v,t)=>{let [x,y]=tokenPos(p,t);let offset=(t%2?7:-7);x+=offset;y+=t<2?-5:5;
+ svg+=`<circle data-token="${p}-${t}" cx="${x}" cy="${y}" r="12" fill="${colors[p]}" stroke="#fff" stroke-width="3" style="filter:drop-shadow(0 3px 3px #0009);cursor:pointer"/><text x="${x}" y="${y+4}" text-anchor="middle" font-size="10" font-weight="900" fill="#fff" pointer-events="none">${t+1}</text>`;
+ }));
+ $('board').innerHTML=svg;
+ document.querySelectorAll('[data-token]').forEach(el=>el.addEventListener('click',()=>window.moveToken(...el.dataset.token.split('-').map(Number))));
+ $('turn').textContent=state.winner!==null?'Winner: '+names[state.winner]:names[state.turn]+' '+(state.rolled?'— choose a token':'— roll dice');
+ $('dice').textContent=state.dice?'🎲 '+state.dice:'🎲';
+ $('message').textContent=state.message;
+ $('roll').disabled=state.winner!==null||state.rolled||(mode==='online'&&state.turn!==mySeat)||(mode==='online'&&!host&&state.turn!==mySeat);
+ $('players').innerHTML=Array.from({length:state.players},(_,p)=>`<div class="player ${state.turn===p?'active':''}"><span class="dot" style="background:${colors[p]}"></span><b>${names[p]}</b><div class="muted">${state.tokens[p].filter(x=>x===57).length}/4 home</div></div>`).join('');
+ $('status').textContent=mode==='online'?'Online multiplayer':mode==='local'?'Local 2-player':'Not connected';
+}
+function send(){if(mode==='online'&&host&&conn&&conn.open)conn.send({type:'state',state});}
+function broadcastMessage(msg){state.message=msg;draw();send();}
+function rollDice(remote=false){
+ if(!state||state.winner!==null||state.rolled)return;
+ if(mode==='online'&&state.turn!==mySeat&&!remote)return;
+ state.dice=Math.floor(Math.random()*6)+1;state.rolled=true;
+ let moves=state.tokens[state.turn].filter(v=>v===-1?state.dice===6:v<57&&v+state.dice<=57).length;
+ if(!moves){state.message=`${state.dice} आया। कोई चाल नहीं — अगली बारी।`;state.rolled=false;state.dice=0;state.turn=(state.turn+1)%state.players;}
+ else state.message=`${names[state.turn]} को ${state.dice} आया। अपनी गोटी चुनें।`;
+ draw();send();
+}
+function moveToken(p,t,remote=false){
+ if(!state||!state.rolled||p!==state.turn||state.winner!==null)return;
+ if(mode==='online'&&p!==mySeat&&!remote)return;
+ let v=state.tokens[p][t],d=state.dice;
+ if(v===-1&&d!==6)return;
+ if(v>=0&&(v+d>57||v===57))return;
+ if(v===-1)state.tokens[p][t]=0;else state.tokens[p][t]+=d;
+ let now=state.tokens[p][t];
+ if(now>=0&&now<52){let idx=(starts[p]+now)%52;if(!safe.includes(idx)){for(let op=0;op<state.players;op++)if(op!==p)state.tokens[op].forEach((ov,ot)=>{if(ov>=0&&ov<52&&(starts[op]+ov)%52===idx)state.tokens[op][ot]=-1;});}}
+ if(state.tokens[p].every(x=>x===57)){state.winner=p;state.message=`🎉 ${names[p]} जीत गए!`;}
+ else {let again=d===6;state.message=again?`${names[p]} को 6 मिला — फिर से पासा फेंकें।`:`${names[p]} की चाल पूरी।`;
+ if(!again)state.turn=(state.turn+1)%state.players;}
+ state.rolled=false;state.dice=0;draw();send();
+}
+$('roll').onclick=rollDice;
+$('local').onclick=()=>{mode='local';state=fresh();mySeat=0;host=true;conn=null;draw();};
+$('create').onclick=()=>{
+ if(!window.Peer){alert('Online library load नहीं हुई। इंटरनेट जाँचें।');return;}
+ mode='online';host=true;mySeat=0;state=fresh();draw();
+ let code='VL'+Math.random().toString(36).slice(2,7).toUpperCase();peer=new Peer(code);
+ peer.on('open',id=>{$('roomline').textContent='Room code: '+id;$('message').textContent='रूम बन गया। दूसरे खिलाड़ी को यह कोड भेजें: '+id;});
+ peer.on('connection',c=>{conn=c;c.on('open',()=>{c.send({type:'welcome',state,seat:1});$('message').textContent='दूसरा खिलाड़ी जुड़ गया!';draw();});c.on('data',d=>{if(d.type==='action'&&host){if(d.action==='roll')rollDice(true);if(d.action==='move')moveToken(d.p,d.t,true);}});});
+ peer.on('error',e=>{$('message').textContent='Connection error: '+e.type+'. दोबारा कोशिश करें।';});
+};
+$('join').onclick=()=>{
+ let code=$('roomInput').value.trim().toUpperCase();if(!code){alert('Room code डालें');return;}
+ if(!window.Peer){alert('Online library load नहीं हुई।');return;}
+ mode='online';host=false;mySeat=1;peer=new Peer();
+ peer.on('open',()=>{conn=peer.connect(code,{reliable:true});conn.on('open',()=>{$('message').textContent='रूम से जुड़ गए!';$('roomline').textContent='Room: '+code;});conn.on('data',d=>{if(d.type==='welcome'||d.type==='state'){state=d.state;draw();}});});
+ peer.on('error',e=>{$('message').textContent='रूम नहीं मिला या कनेक्शन असफल: '+e.type;});
+};
+const originalRoll=rollDice;
+$('roll').onclick=()=>{if(mode==='online'&&!host){conn?.send({type:'action',action:'roll'});}else originalRoll();};
+const originalMove=moveToken;
+window.moveToken=(p,t)=>{if(mode==='online'&&!host){conn?.send({type:'action',action:'move',p,t});}else originalMove(p,t);};
+$('reset').onclick=()=>{if(mode==='online'&&!host){alert('Restart केवल रूम बनाने वाला खिलाड़ी कर सकता है।');return;}state=fresh();draw();send();};
+draw();
+</script>
+<script>
+if ('serviceWorker' in navigator) {
+  window.addEventListener('load', () => navigator.serviceWorker.register('./sw.js').catch(console.error));
+}
+</script>
+</body></html>

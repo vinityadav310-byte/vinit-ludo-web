@@ -1,0 +1,20 @@
+VINIT LUDO — मोबाइल से Android पैकेज बनाने की तैयारी
+
+इस ZIP में PWA की शुरुआती फाइलें हैं:
+- index.html: गेम
+- manifest.webmanifest: ऐप का नाम, आइकन और स्क्रीन सेटिंग
+- sw.js: बेसिक offline app-shell cache
+- icon-192.png / icon-512.png: ऐप आइकन
+
+जरूरी:
+1) यह ZIP अपने आप APK नहीं बनाता।
+2) PWABuilder को ऐसी वेबसाइट का HTTPS URL चाहिए जो इंटरनेट पर प्रकाशित हो।
+3) इस HTML गेम का online multiplayer अभी prototype है; सार्वजनिक रिलीज से पहले multiplayer को सुधारना और कई फोन पर टेस्ट करना जरूरी है।
+4) किसी भरोसेमंद बड़े व्यक्ति की मदद से hosting और Play Console publishing करें। पासवर्ड/साइनिंग की private key किसी के साथ साझा न करें।
+
+आगे का रास्ता:
+A. ZIP को extract करें।
+B. इन सभी फाइलों को एक ही website folder में रखें।
+C. उस folder को HTTPS hosting पर publish करें।
+D. प्रकाशित URL को PWABuilder में डालकर PWA checks चलाएँ।
+E. सभी checks और game testing के बाद Android package बनाएं।
